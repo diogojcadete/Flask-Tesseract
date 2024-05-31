@@ -22,7 +22,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def get_font(image_path):
-    with PyTessBaseAPI(path='../tessdata-main') as api:
+    with PyTessBaseAPI(path='tessdata-main') as api:
         api.SetImageFile(image_path)
         api.Recognize()
         ri = api.GetIterator()
@@ -41,7 +41,6 @@ def get_font(image_path):
 
         if counter > 0:
             average_font_size = total_font_size / counter
-            print("Average font size:", average_font_size)
             return average_font_size
         else:
             return None
