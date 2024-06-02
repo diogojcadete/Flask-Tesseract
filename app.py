@@ -21,7 +21,7 @@ if not os.path.exists(app.config['RESULT_FOLDER']):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-def get_font(image_path):
+def ocr_and_get_font(image_path):
     with PyTessBaseAPI(path='tessdata-main') as api:
         api.SetImageFile(image_path)
         api.Recognize()
@@ -29,6 +29,7 @@ def get_font(image_path):
         level = RIL.SYMBOL
         counter = 0
         total_font_size = 0
+        extracted_text = api.GetUTF8Text()
 
         for r in iterate_level(ri, level):
             symbol = r.GetUTF8Text(level)
@@ -41,15 +42,13 @@ def get_font(image_path):
 
         if counter > 0:
             average_font_size = total_font_size / counter
-            return average_font_size
         else:
-            return None
+            average_font_size = None
 
-def ocr_to_files(image_path, output_html_path, output_txt_path, output_docx_path):
-    extracted_text = pytesseract.image_to_string(Image.open(image_path))
+        return extracted_text, average_font_size
 
-    average_font_size = get_font(image_path)
 
+def ocr_to_files(extracted_text, average_font_size, output_html_path, output_txt_path, output_docx_path):
     html_content = f"<html><head><title></title><style>pre {{ font-size: {average_font_size}px; }}</style></head><body><pre>{extracted_text}</pre></body></html>"
 
     with open(output_html_path, "w") as html_file:
@@ -63,7 +62,8 @@ def ocr_to_files(image_path, output_html_path, output_txt_path, output_docx_path
         p = doc.add_paragraph()
         run = p.add_run(paragraph)
         font = run.font
-        font.size = Pt(average_font_size)
+        if average_font_size:
+            font.size = Pt(average_font_size)
     doc.save(output_docx_path)
 
 @app.route('/', methods=['GET', 'POST'])
@@ -84,7 +84,8 @@ def upload_file():
             output_txt_path = os.path.join(app.config['RESULT_FOLDER'], base_filename + '.txt')
             output_docx_path = os.path.join(app.config['RESULT_FOLDER'], base_filename + '.docx')
 
-            ocr_to_files(image_path, output_html_path, output_txt_path, output_docx_path)
+            extracted_text, average_font_size = ocr_and_get_font(image_path)
+            ocr_to_files(extracted_text, average_font_size, output_html_path, output_txt_path, output_docx_path)
 
             return render_template('results.html', filename=base_filename)
     return render_template('upload.html')
